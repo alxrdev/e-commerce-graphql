@@ -1,0 +1,102 @@
+type Query {
+  hello: String!
+
+  # Category
+  categories: [Category!]!
+  category(id: ID!): Category
+
+  # Product
+  products(filter: ProductsFilterInput): [Product!]!
+  product(id: ID!): Product
+}
+
+type Mutation {
+  # Category
+  addCategory(input: AddCategoryInput!): Category!
+  updateCategory(id: ID!, input: UpdateCategoryInput!): Category!
+  deleteCategory(id: ID!): Boolean!
+
+  # Product
+  addProduct(input: AddProductInput!): Product!
+  updateProduct(id: ID!, input: UpdateProductInput!): Product!
+  deleteProduct(id: ID!): Boolean!
+
+  # Review
+  addReview(input: AddReviewInput!): Review!
+  updateReview(id: ID!, input: UpdateReviewInput!): Review!
+  deleteReview(id: ID!): Boolean!
+}
+
+type Category {
+  id: ID!
+  name: String!
+  products(filter: ProductsFilterInput): [Product!]!
+}
+
+input AddCategoryInput {
+  name: String!
+}
+
+input UpdateCategoryInput {
+  name: String!
+}
+
+type Product {
+  id: ID!
+  name: String!
+  description: String!
+  image: String!
+  quantity: Int!
+  price: Float!
+  onSale: Boolean!
+  category: Category
+  reviews: [Review!]!
+}
+
+input ProductsFilterInput {
+  onSale: Boolean
+  avgRating: Int
+}
+
+input AddProductInput {
+  name: String!
+  description: String!
+  image: String!
+  quantity: Int!
+  price: Float!
+  onSale: Boolean!
+  categoryId: ID
+}
+
+input UpdateProductInput {
+  name: String!
+  description: String!
+  image: String!
+  quantity: Int!
+  price: Float!
+  onSale: Boolean!
+  categoryId: ID
+}
+
+type Review {
+  id: ID!
+  date: String!
+  title: String!
+  comment: String!
+  rating: Int!
+}
+
+input AddReviewInput {
+  date: String!
+  title: String!
+  comment: String!
+  rating: Int!
+  productId: String!
+}
+
+input UpdateReviewInput {
+  date: String!
+  title: String!
+  comment: String!
+  rating: Int!
+}
