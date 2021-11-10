@@ -12,19 +12,29 @@ type Query {
 
 type Mutation {
   # Category
-  addCategory(input: AddCategoryInput!): Category!
-  updateCategory(id: ID!, input: UpdateCategoryInput!): Category!
+  addCategory(input: AddCategoryInput!): CategoryResult!
+  updateCategory(id: ID!, input: UpdateCategoryInput!): CategoryResult!
   deleteCategory(id: ID!): Boolean!
 
   # Product
-  addProduct(input: AddProductInput!): Product!
-  updateProduct(id: ID!, input: UpdateProductInput!): Product!
+  addProduct(input: AddProductInput!): ProductResult!
+  updateProduct(id: ID!, input: UpdateProductInput!): ProductResult!
   deleteProduct(id: ID!): Boolean!
 
   # Review
-  addReview(input: AddReviewInput!): Review!
-  updateReview(id: ID!, input: UpdateReviewInput!): Review!
+  addReview(input: AddReviewInput!): ReviewResult!
+  updateReview(id: ID!, input: UpdateReviewInput!): ReviewResult!
   deleteReview(id: ID!): Boolean!
+}
+
+type Error {
+  message: String!
+  path: String
+  value: String
+}
+
+type InvalidInput {
+  invalidInputs: [Error!]!
 }
 
 type Category {
@@ -32,6 +42,8 @@ type Category {
   name: String!
   products(filter: ProductsFilterInput): [Product!]!
 }
+
+union CategoryResult = Category | InvalidInput
 
 input AddCategoryInput {
   name: String!
@@ -53,6 +65,8 @@ type Product {
   reviews: [Review!]!
 }
 
+union ProductResult = Product | InvalidInput
+
 input ProductsFilterInput {
   onSale: Boolean
   avgRating: Int
@@ -69,12 +83,12 @@ input AddProductInput {
 }
 
 input UpdateProductInput {
-  name: String!
-  description: String!
-  image: String!
-  quantity: Int!
-  price: Float!
-  onSale: Boolean!
+  name: String
+  description: String
+  image: String
+  quantity: Int
+  price: Float
+  onSale: Boolean
   categoryId: ID
 }
 
@@ -85,6 +99,8 @@ type Review {
   comment: String!
   rating: Int!
 }
+
+union ReviewResult = Review | InvalidInput
 
 input AddReviewInput {
   date: String!

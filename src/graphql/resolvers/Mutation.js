@@ -1,25 +1,50 @@
 const { UserInputError } = require("apollo-server");
 const { v4: uuid } = require("uuid");
+const yup = require("yup");
+const { formatYupError } = require("../utils/formatYupError");
 
 exports.Mutation = {
-  addCategory: (parent, { input }, { db }) => {
-    const { name } = input;    
+  addCategory: async (parent, { input }, { db }) => {
+    const schema = yup.object().shape({
+      name: yup.string().required(),
+    });
+
+    try {
+      await schema.validate(input, { abortEarly: false });
+    } catch (error) {
+      return formatYupError(error);
+    }
+
     const newCategory = {
       id: uuid(),
-      name,
+      name: input.name,
     };
 
     db.categories.push(newCategory);
 
     return newCategory;
   },
-  updateCategory: (parent, { id, input }, { db }) => {
+  updateCategory: async (parent, { id, input }, { db }) => {
+    const schema = yup.object().shape({
+      name: yup.string().required(),
+    });
+
+    try {
+      await schema.validate(input, { abortEarly: false });
+    } catch (error) {
+      return formatYupError(error);
+    }
+    
     const index = db.categories.findIndex((category) => category.id === id);
 
     if (index === -1) {
-      throw new UserInputError("Invalid argument for id field. Category not found.", {
-        argumentName: "id",
-      });
+      return {
+        invalidInputs: [{
+          message: "Category not found.",
+          path: "id",
+          value: id,
+        }],
+      };
     }
     
     db.categories[index] = {
@@ -44,19 +69,36 @@ exports.Mutation = {
   },
 
 
-  addProduct: (parent, { input }, { db }) => {
-    const { name, description, image, price, quantity, onSale, categoryId } = input;
+  addProduct: async (parent, { input }, { db }) => {
+    const schema = yup.object().shape({
+      name: yup.string().required(),
+      description: yup.string().required(),
+      image: yup.string().required(),
+      price: yup.number().min(0).required(),
+      quantity: yup.number().min(0).required(),
+      onSale: yup.boolean().required(),
+      categoryId: yup.string().optional(),
+    });
 
-    if (input.quantity < 0) {
-      throw new UserInputError("Invalid argument for quantity field. The quantity must be greater than or equal to 0.", {
-        argumentName: "quantity",
-      });
+    try {
+      await schema.validate(input, { abortEarly: false });
+    } catch (error) {
+      return formatYupError(error);
     }
 
-    if (input.price < 0) {
-      throw new UserInputError("Invalid argument for price field. The price must be greater than or equal to 0.", {
-        argumentName: "price",
-      });
+    const { name, description, image, price, quantity, onSale, categoryId } = input;
+
+    if (categoryId) {
+      const category = db.categories.find((category) => category.id === categoryId);
+      if (!category) {
+        return {
+          invalidInputs: [{
+            message: "Category not found.",
+            path: "categoryId",
+            value: categoryId,
+          }],
+        };
+      }
     }
 
     const newProduct = {
@@ -74,25 +116,48 @@ exports.Mutation = {
 
     return newProduct;
   },
-  updateProduct: (parent, { id, input }, { db }) => {
+  updateProduct: async (parent, { id, input }, { db }) => {
+    const schema = yup.object().shape({
+      name: yup.string().min(1).optional(),
+      description: yup.string().min(1).optional(),
+      image: yup.string().min(1).optional(),
+      price: yup.number().min(0).optional(),
+      quantity: yup.number().min(0).optional(),
+      onSale: yup.boolean().optional(),
+      categoryId: yup.string().optional(),
+    });
+
+    try {
+      await schema.validate(input, { abortEarly: false });
+    } catch (error) {
+      return formatYupError(error);
+    }
+
     const index = db.products.findIndex((product) => product.id === id);
 
     if (index === -1) {
-      throw new UserInputError("Invalid argument for id field. Product not found.", {
-        argumentName: "id",
-      });
+      return {
+        invalidInputs: [{
+          message: "Product not found.",
+          path: "id",
+          value: id,
+        }],
+      };
     }
 
-    if (input.hasOwnProperty("quantity") && input.quantity < 0) {
-      throw new UserInputError("Invalid argument for quantity field. The quantity must be greater than or equal to 0.", {
-        argumentName: "quantity",
-      });
-    }
+    if (input.categoryId) {
+      const { categoryId } = input;
+      const category = db.categories.find((category) => category.id === categoryId);
 
-    if (input.hasOwnProperty("price") && input.price < 0) {
-      throw new UserInputError("Invalid argument for price field. The price must be greater than or equal to 0.", {
-        argumentName: "price",
-      });
+      if (!category) {
+        return {
+          invalidInputs: [{
+            message: "Category not found.",
+            path: "categoryId",
+            value: categoryId,
+          }],
+        };
+      }
     }
     
     db.products[index] = {
@@ -109,21 +174,33 @@ exports.Mutation = {
   },
 
 
-  addReview: (parent, { input }, { db }) => {
+  addReview: async (parent, { input }, { db }) => {
+    const schema = yup.object().shape({
+      date: yup.date().required(),
+      title: yup.string().required(),
+      comment: yup.string().required(),
+      rating: yup.number().oneOf([1, 2, 3, 4, 5]).required(),
+      productId: yup.string().required(),
+    });
+
+    try {
+      await schema.validate(input, { abortEarly: false });
+    } catch (error) {
+      return formatYupError(error);
+    }
+
     const { date, title, comment, rating, productId } = input;
     
     const product = db.products.find((product) => product.id === productId);
 
     if (!product) {
-      throw new UserInputError("Invalid argument for productId field. Product not found.", {
-        argumentName: "productId",
-      });
-    }
-
-    if (![1, 2, 3, 4, 5].includes(rating)) {
-      throw new UserInputError("Invalid argument for rating field. The rating value must be between: 1, 2, 3, 4 and 5.", {
-        argumentName: "rating",
-      });
+      return {
+        invalidInputs: [{
+          message: "Product not found.",
+          path: "productId",
+          value: productId,
+        }],
+      };
     }
 
     const newReview = {
@@ -139,19 +216,30 @@ exports.Mutation = {
 
     return newReview;
   },
-  updateReview: (parent, { id, input }, { db }) => {
+  updateReview: async (parent, { id, input }, { db }) => {
+    const schema = yup.object().shape({
+      date: yup.date().optional(),
+      title: yup.string().min(1).optional(),
+      comment: yup.string().min(1).optional(),
+      rating: yup.number().oneOf([1, 2, 3, 4, 5]).optional(),
+    });
+
+    try {
+      await schema.validate(input, { abortEarly: false });
+    } catch (error) {
+      return formatYupError(error);
+    }
+
     const index = db.reviews.findIndex((review) => review.id === id);
 
     if (index === -1) {
-      throw new UserInputError("Invalid argument for id field. Review not found.", {
-        argumentName: "id",
-      });
-    }
-
-    if (input.hasOwnProperty("rating") && ![1, 2, 3, 4, 5].includes(input.rating)) {
-      throw new UserInputError("Invalid argument for rating field. The rating value must be between: 1, 2, 3, 4 and 5.", {
-        argumentName: "rating",
-      });
+      return {
+        invalidInputs: [{
+          message: "Review not found.",
+          path: "id",
+          value: id,
+        }],
+      };
     }
     
     db.reviews[index] = {
