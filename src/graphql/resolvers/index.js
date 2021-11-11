@@ -1,17 +1,12 @@
-const { Query } = require("./Query");
-const { Product } = require("./Product");
-const { ProductResult } = require("./ProductResult");
-const { Category } = require("./Category");
-const { CategoryResult } = require("./CategoryResult");
-const { ReviewResult } = require("./ReviewResult");
-const { Mutation } = require("./Mutation");
+const { categoryResolvers } = require("./category");
+const { productResolvers } = require("./product");
+const { reviewResolvers } = require("./review");
 
-exports.resolvers = {
-  Query,
-  Product,
-  Category,
-  Mutation,
-  CategoryResult,
-  ProductResult,
-  ReviewResult,
-};
+const rootResolver = {};
+
+exports.resolvers = [
+  rootResolver,
+  categoryResolvers,
+  productResolvers,
+  reviewResolvers,
+];
