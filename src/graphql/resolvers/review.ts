@@ -1,11 +1,27 @@
-const { v4: uuid } = require("uuid");
-const yup = require("yup");
-const { formatYupError } = require("../utils/formatYupError");
+import { ErrorMessage, InvalidInput, Product, Review } from "entities";
+import { v4 as uuid } from "uuid";
+import * as yup from "yup";
+import { formatYupError } from "../utils/formatYupError";
 
-exports.reviewResolvers = {
+interface IAddReviewArguments {
+  input: Omit<Review, "id">
+}
+
+interface IUpdateReviewArguments {
+  id: string
+  input: Partial<Omit<Review, "id">>
+}
+
+interface IDeleteReviewArguments {
+  id: string
+}
+
+type ReviewResult = Review | ErrorMessage;
+
+const reviewResolvers = {
   Query: {},
   Mutation: {
-    addReview: async (parent, { input }, { db }) => {
+    addReview: async (_: any, { input }: IAddReviewArguments, { db }: any): Promise<Review | InvalidInput> => {
       const schema = yup.object().shape({
         date: yup.date().required(),
         title: yup.string().required(),
@@ -17,12 +33,12 @@ exports.reviewResolvers = {
       try {
         await schema.validate(input, { abortEarly: false });
       } catch (error) {
-        return formatYupError(error);
+        return formatYupError(error as yup.ValidationError);
       }
   
       const { date, title, comment, rating, productId } = input;
       
-      const product = db.products.find((product) => product.id === productId);
+      const product = db.products.find((product: Product) => product.id === productId);
   
       if (!product) {
         return {
@@ -47,7 +63,7 @@ exports.reviewResolvers = {
   
       return newReview;
     },
-    updateReview: async (parent, { id, input }, { db }) => {
+    updateReview: async (_: any, { id, input }: IUpdateReviewArguments, { db }: any): Promise<Review | InvalidInput> => {
       const schema = yup.object().shape({
         date: yup.date().optional(),
         title: yup.string().min(1).optional(),
@@ -58,10 +74,10 @@ exports.reviewResolvers = {
       try {
         await schema.validate(input, { abortEarly: false });
       } catch (error) {
-        return formatYupError(error);
+        return formatYupError(error as yup.ValidationError);
       }
   
-      const index = db.reviews.findIndex((review) => review.id === id);
+      const index = db.reviews.findIndex((review: Review) => review.id === id);
   
       if (index === -1) {
         return {
@@ -80,15 +96,17 @@ exports.reviewResolvers = {
       
       return db.reviews[index];
     },
-    deleteReview: (parent, { id }, { db }) => {
-      db.reviews = db.reviews.filter(review => review.id !== id);
+    deleteReview: (_: any, { id }: IDeleteReviewArguments, { db }: any): boolean => {
+      db.reviews = db.reviews.filter((review: Review) => review.id !== id);
       return true;
     },
   },
   ReviewResult: {
-    __resolveType: (obj, context, info) => {
+    __resolveType: (obj: ReviewResult, _: any, __: any) => {
       return obj.hasOwnProperty("invalidInputs")
         ? "InvalidInput" : "Review";
     }
   },
 };
+
+export { reviewResolvers };
