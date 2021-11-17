@@ -1,5 +1,5 @@
-import { ErrorMessage, InvalidInput, Product, Review } from "entities";
-import { v4 as uuid } from "uuid";
+import { Review } from ".prisma/client";
+import { Context, ErrorMessage, InvalidInput } from "graphql/types";
 import * as yup from "yup";
 import { formatYupError } from "../utils/formatYupError";
 
@@ -21,7 +21,7 @@ type ReviewResult = Review | ErrorMessage;
 const reviewResolvers = {
   Query: {},
   Mutation: {
-    addReview: async (_: any, { input }: IAddReviewArguments, { db }: any): Promise<Review | InvalidInput> => {
+    addReview: async (_: any, { input }: IAddReviewArguments, { db }: Context): Promise<Review | InvalidInput> => {
       const schema = yup.object().shape({
         date: yup.date().required(),
         title: yup.string().required(),
@@ -36,9 +36,9 @@ const reviewResolvers = {
         return formatYupError(error as yup.ValidationError);
       }
   
-      const { date, title, comment, rating, productId } = input;
+      const { productId } = input;
       
-      const product = db.products.find((product: Product) => product.id === productId);
+      const product = await db.product.findFirst({ where: { id: productId } });
   
       if (!product) {
         return {
@@ -49,21 +49,12 @@ const reviewResolvers = {
           }],
         };
       }
+
+      const review = db.review.create({ data: { ...input }});
   
-      const newReview = {
-        id: uuid(),
-        date,
-        title,
-        comment,
-        rating,
-        productId,
-      };
-  
-      db.reviews.push(newReview);
-  
-      return newReview;
+      return review;
     },
-    updateReview: async (_: any, { id, input }: IUpdateReviewArguments, { db }: any): Promise<Review | InvalidInput> => {
+    updateReview: async (_: any, { id, input }: IUpdateReviewArguments, { db }: Context): Promise<Review | InvalidInput> => {
       const schema = yup.object().shape({
         date: yup.date().optional(),
         title: yup.string().min(1).optional(),
@@ -77,9 +68,9 @@ const reviewResolvers = {
         return formatYupError(error as yup.ValidationError);
       }
   
-      const index = db.reviews.findIndex((review: Review) => review.id === id);
+      const review = await db.review.findFirst({ where: { id } });
   
-      if (index === -1) {
+      if (!review) {
         return {
           invalidInputs: [{
             message: "Review not found.",
@@ -89,15 +80,15 @@ const reviewResolvers = {
         };
       }
       
-      db.reviews[index] = {
-        ...db.reviews[index],
-        ...input
-      };
+      const updatedReview = db.review.update({
+        where: { id },
+        data: { ...input }
+      });
       
-      return db.reviews[index];
+      return updatedReview;
     },
-    deleteReview: (_: any, { id }: IDeleteReviewArguments, { db }: any): boolean => {
-      db.reviews = db.reviews.filter((review: Review) => review.id !== id);
+    deleteReview: async (_: any, { id }: IDeleteReviewArguments, { db }: Context): Promise<boolean> => {
+      await db.review.delete({ where: { id } });
       return true;
     },
   },

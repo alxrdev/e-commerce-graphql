@@ -1,5 +1,5 @@
-import { Category, ErrorMessage, InvalidInput, Product, Review } from "entities";
-import { v4 as uuid } from "uuid";
+import { Category, Product, Review } from ".prisma/client";
+import { Context, ErrorMessage, InvalidInput } from "graphql/types";
 import * as yup from "yup";
 import { formatYupError } from "../utils/formatYupError";
 
@@ -31,44 +31,59 @@ type ProductResult = Product | ErrorMessage;
 
 const productResolvers = {
   Query: {
-    products: (_: any, { filter }: IProductFiltersArguments, { db }: any): Product[] => {
-      let productsFound = db.products;
+    products: async (_: any, { filter }: IProductFiltersArguments, { db }: Context): Promise<Product[] | undefined> => {
+      let productsFound: Product[] = [];
   
       if (filter) {
         const { onSale, avgRating } = filter;
+        let query = {} as { onSale?: boolean };
   
         if (onSale) {
-          productsFound = productsFound.filter((product: Product) => product.onSale === true);
+          query.onSale = true;
         }
+
+        productsFound = await db.product.findMany({ where: query });
   
         if (avgRating && [1, 2, 3, 4, 5].includes(avgRating)) {
-          productsFound = productsFound.filter((product: Product) => {
+          const validProducts = [];
+
+          for (const product of productsFound) {
             let sumRating = 0;
             let qttReviews = 0;
   
-            db.reviews.forEach((review: Review) => {
-              if (review.productId === product.id) {
-                sumRating += review.rating;
-                qttReviews++;
-              }
+            const reviews = await db.product
+              .findUnique({ where: { id: product.id } })
+              .reviews();
+            
+            reviews.forEach((review: Review) => {
+              sumRating += review.rating;
+              qttReviews++;
             });
   
-            const productRating = sumRating / qttReviews;
+            const productRating = sumRating !== 0 && qttReviews !== 0
+              ? sumRating / qttReviews
+              : 0;
   
-            return productRating >= avgRating;
-          });
+            if (productRating >= avgRating) {
+              validProducts.push(product);
+            }
+          }
+
+          productsFound = validProducts;
         }
+      } else {
+        productsFound = await db.product.findMany();
       }
   
       return productsFound;
     },
-    product: (_: any, { id }: IProductArguments, { db }: any): Product => {
-      const product = db.products.find((product: Product) => product.id === id);
+    product: async (_: any, { id }: IProductArguments, { db }: Context): Promise<Product | null | undefined> => {
+      const product = db.product.findFirst({ where: { id } });
       return product;
     },
   },
   Mutation: {
-    addProduct: async (_: any, { input }: IAddProductArguments, { db }: any): Promise<Product | InvalidInput> => {
+    addProduct: async (_: any, { input }: IAddProductArguments, { db }: Context): Promise<Product | InvalidInput> => {
       const schema = yup.object().shape({
         name: yup.string().required(),
         description: yup.string().required(),
@@ -88,7 +103,7 @@ const productResolvers = {
       const { name, description, image, price, quantity, onSale, categoryId } = input;
   
       if (categoryId) {
-        const category = db.categories.find((category: Category) => category.id === categoryId);
+        const category = await db.category.findFirst({ where: { id: categoryId } });
         if (!category) {
           return {
             invalidInputs: [{
@@ -99,23 +114,22 @@ const productResolvers = {
           };
         }
       }
+
+      const product = db.product.create({
+        data: {
+          name,
+          description,
+          image,
+          price,
+          quantity,
+          onSale,
+          categoryId
+        }
+      });
   
-      const newProduct = {
-        id: uuid(),
-        name,
-        description,
-        image,
-        price,
-        quantity,
-        onSale,
-        categoryId,
-      };
-  
-      db.products.push(newProduct);
-  
-      return newProduct;
+      return product;
     },
-    updateProduct: async (_: any, { id, input }: IUpdateProductArguments, { db }: any): Promise<Product | InvalidInput> => {
+    updateProduct: async (_: any, { id, input }: IUpdateProductArguments, { db }: Context): Promise<Product | InvalidInput> => {
       const schema = yup.object().shape({
         name: yup.string().min(1).optional(),
         description: yup.string().min(1).optional(),
@@ -131,10 +145,10 @@ const productResolvers = {
       } catch (error) {
         return formatYupError(error as yup.ValidationError);
       }
+      
+      const product = db.product.findFirst({ where: { id } });
   
-      const index = db.products.findIndex((product: Product) => product.id === id);
-  
-      if (index === -1) {
+      if (!product) {
         return {
           invalidInputs: [{
             message: "Product not found.",
@@ -146,7 +160,7 @@ const productResolvers = {
   
       if (input.categoryId) {
         const { categoryId } = input;
-        const category = db.categories.find((category: Category) => category.id === categoryId);
+        const category = await db.category.findFirst({ where: { id: categoryId } });
   
         if (!category) {
           return {
@@ -159,26 +173,26 @@ const productResolvers = {
         }
       }
       
-      db.products[index] = {
-        ...db.products[index],
-        ...input
-      };
+      const updatedProduct = db.product.update({
+        where: { id },
+        data: { ...input }
+      });
       
-      return db.products[index];
+      return updatedProduct;
     },
-    deleteProduct: (_: any, { id }: IDeleteProductArguments, { db }: any): boolean => {
-      db.products = db.products.filter((product: Product) => product.id !== id);
-      db.reviews = db.reviews.filter((review: Review) => review.productId !== id);
+    deleteProduct: async (_: any, { id }: IDeleteProductArguments, { db }: Context): Promise<boolean> => {
+      await db.review.deleteMany({ where: { productId: id } });
+      await db.product.delete({ where: { id } });
       return true;
     },
   },
   Product: {
-    category: ({ categoryId }: Product, _: any, { db }: any): Category => {
-      const category = db.categories.find((category: Category) => category.id === categoryId);    
+    category: async ({ id }: Product, _: any, { db }: Context): Promise<Category | null> => {
+      const category = db.product.findUnique({ where: { id } }).category();
       return category;
     },
-    reviews: ({ id }: Product, _: any, { db }: any): Review[] => {
-      const reviewsFound = db.reviews.filter((review: Review) => review.productId === id);
+    reviews: async ({ id }: Product, _: any, { db }: Context): Promise<Review[]> => {
+      const reviewsFound = db.product.findUnique({ where: { id } }).reviews();
       return reviewsFound;
     },
   },

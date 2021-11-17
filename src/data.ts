@@ -1,4 +1,4 @@
-import { Category, Product, Review } from "entities";
+import { Category, Product, Review } from ".prisma/client";
 
 const products: Product[] = [
   {
