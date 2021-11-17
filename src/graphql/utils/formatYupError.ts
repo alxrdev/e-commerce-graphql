@@ -1,4 +1,4 @@
-import { ErrorMessage, InvalidInput } from "entities";
+import { ErrorMessage, InvalidInput } from "../types";
 import { ValidationError } from "yup";
 
 const formatYupError = (error: ValidationError) => {
