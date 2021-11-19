@@ -32,50 +32,60 @@ type ProductResult = Product | ErrorMessage;
 const productResolvers = {
   Query: {
     products: async (_: any, { filter }: IProductFiltersArguments, { db }: Context): Promise<Product[] | undefined> => {
-      let productsFound: Product[] = [];
-  
       if (filter) {
         const { onSale, avgRating } = filter;
-        let query = {} as { onSale?: boolean };
-  
-        if (onSale) {
-          query.onSale = true;
-        }
 
-        productsFound = await db.product.findMany({ where: query });
-  
         if (avgRating && [1, 2, 3, 4, 5].includes(avgRating)) {
-          const validProducts = [];
+          let params: any[] = [avgRating];
+          let query = `
+            SELECT
+              p.*, AVG(COALESCE(r.rating, 0)) AS rating
+            FROM
+              "public"."Product" p
+            LEFT JOIN
+              "public"."Review" r ON p.id = r."productId"
+            WHERE
+              rating >= $1
+          `;
 
-          for (const product of productsFound) {
-            let sumRating = 0;
-            let qttReviews = 0;
-  
-            const reviews = await db.product
-              .findUnique({ where: { id: product.id } })
-              .reviews();
-            
-            reviews.forEach((review: Review) => {
-              sumRating += review.rating;
-              qttReviews++;
-            });
-  
-            const productRating = sumRating !== 0 && qttReviews !== 0
-              ? sumRating / qttReviews
-              : 0;
-  
-            if (productRating >= avgRating) {
-              validProducts.push(product);
-            }
+          if (onSale !== null && onSale !== undefined
+              && [true, false].includes(onSale)) {
+            query += `
+              AND
+                "onSale" = $2
+            `;
+            params.push(onSale);
           }
 
-          productsFound = validProducts;
+          query += `
+            GROUP BY
+              p.id
+            ORDER BY
+              rating
+            DESC
+          `;
+
+          const products: Product[] = await db.$queryRawUnsafe(
+            query,
+            ...params
+          );
+
+          return products;
         }
-      } else {
-        productsFound = await db.product.findMany();
+
+        let query = {} as { onSale?: boolean };
+
+        if (onSale !== null && onSale !== undefined
+          && [true, false].includes(onSale)) {
+          query.onSale = onSale;
+        }
+
+        const products: Product[] = await db.product.findMany({ where: query });
+        return products
       }
-  
-      return productsFound;
+      
+      const products: Product[] = await db.product.findMany();
+      return products;
     },
     product: async (_: any, { id }: IProductArguments, { db }: Context): Promise<Product | null | undefined> => {
       const product = db.product.findFirst({ where: { id } });

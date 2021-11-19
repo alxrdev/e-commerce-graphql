@@ -95,7 +95,47 @@ const categoryResolvers = {
   
       if (filter) {
         const { onSale, avgRating } = filter;
-  
+
+        if (avgRating && [1, 2, 3, 4, 5].includes(avgRating)) {
+          let params: any[] = [id, avgRating];
+          let query = `
+            SELECT
+              p.*, AVG(COALESCE(r.rating, 0)) AS rating
+            FROM
+              "public"."Product" p
+            LEFT JOIN
+              "public"."Review" r ON p.id = r."productId"
+            WHERE
+              "categoryId" = $1
+            AND
+              rating >= $2
+          `;
+
+          if (onSale !== null && onSale !== undefined
+              && [true, false].includes(onSale)) {
+            query += `
+              AND
+                "onSale" = $3
+            `;
+            params.push(onSale);
+          }
+
+          query += `
+            GROUP BY
+              p.id
+            ORDER BY
+              rating
+            DESC
+          `;
+
+          const products: Product[] = await db.$queryRawUnsafe(
+            query,
+            ...params
+          );
+
+          return products;
+        }
+
         if (onSale) {
           query.onSale = true;
         }
@@ -103,34 +143,6 @@ const categoryResolvers = {
         productsFound = await db.category
           .findUnique({ where: { id } })
           .products({ where: query });
-  
-        if (avgRating && [1, 2, 3, 4, 5].includes(avgRating)) {
-          const validProducts = [];
-
-          for (const product of productsFound) {
-            let sumRating = 0;
-            let qttReviews = 0;
-  
-            const reviews = await db.product
-              .findUnique({ where: { id: product.id } })
-              .reviews();
-            
-            reviews.forEach((review: Review) => {
-              sumRating += review.rating;
-              qttReviews++;
-            });
-  
-            const productRating = sumRating !== 0 && qttReviews !== 0
-              ? sumRating / qttReviews
-              : 0;
-  
-            if (productRating >= avgRating) {
-              validProducts.push(product);
-            }
-          }
-
-          productsFound = validProducts;
-        }
       } else {
         productsFound = await db.category
           .findUnique({ where: { id } })

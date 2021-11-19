@@ -50,7 +50,7 @@ const reviewResolvers = {
         };
       }
 
-      const review = db.review.create({ data: { ...input }});
+      const review = db.review.create({ data: { ...input, date: new Date(input.date) }});
   
       return review;
     },
