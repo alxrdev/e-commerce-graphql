@@ -11,6 +11,9 @@ type Query {
 }
 
 type Mutation {
+  # User
+  login(email: String!, password: String!): LoginResult!
+
   # Category
   addCategory(input: AddCategoryInput!): CategoryResult!
   updateCategory(id: ID!, input: UpdateCategoryInput!): CategoryResult!
@@ -36,6 +39,25 @@ type Error {
 type InvalidInput {
   invalidInputs: [Error!]!
 }
+
+type Role {
+  id: String!
+  name: String!
+}
+
+type User {
+  id: String!
+  name: String!
+  email: String!
+  roles: [Role!]!
+}
+
+type LoginResponse {
+  token: String!
+  user: User!
+}
+
+union LoginResult = LoginResponse | InvalidInput
 
 type Category {
   id: ID!

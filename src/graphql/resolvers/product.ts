@@ -2,6 +2,7 @@ import { Category, Product, Review } from ".prisma/client";
 import { Context, ErrorMessage, InvalidInput } from "graphql/types";
 import * as yup from "yup";
 import { formatYupError } from "../utils/formatYupError";
+import { userAuthorization } from "../utils/userAuthorization";
 
 interface IProductFiltersArguments {
   filter: {
@@ -93,7 +94,9 @@ const productResolvers = {
     },
   },
   Mutation: {
-    addProduct: async (_: any, { input }: IAddProductArguments, { db }: Context): Promise<Product | InvalidInput> => {
+    addProduct: async (_: any, { input }: IAddProductArguments, { db, user }: Context): Promise<Product | InvalidInput> => {
+      userAuthorization(user, ["admin"]);
+
       const schema = yup.object().shape({
         name: yup.string().required(),
         description: yup.string().required(),
@@ -139,7 +142,9 @@ const productResolvers = {
   
       return product;
     },
-    updateProduct: async (_: any, { id, input }: IUpdateProductArguments, { db }: Context): Promise<Product | InvalidInput> => {
+    updateProduct: async (_: any, { id, input }: IUpdateProductArguments, { db, user }: Context): Promise<Product | InvalidInput> => {
+      userAuthorization(user, ["admin"]);
+
       const schema = yup.object().shape({
         name: yup.string().min(1).optional(),
         description: yup.string().min(1).optional(),
@@ -190,7 +195,9 @@ const productResolvers = {
       
       return updatedProduct;
     },
-    deleteProduct: async (_: any, { id }: IDeleteProductArguments, { db }: Context): Promise<boolean> => {
+    deleteProduct: async (_: any, { id }: IDeleteProductArguments, { db, user }: Context): Promise<boolean> => {
+      userAuthorization(user, ["admin"]);
+
       await db.review.deleteMany({ where: { productId: id } });
       await db.product.delete({ where: { id } });
       return true;

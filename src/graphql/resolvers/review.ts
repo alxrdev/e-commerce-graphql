@@ -2,6 +2,7 @@ import { Review } from ".prisma/client";
 import { Context, ErrorMessage, InvalidInput } from "graphql/types";
 import * as yup from "yup";
 import { formatYupError } from "../utils/formatYupError";
+import { userAuthorization } from "../utils/userAuthorization";
 
 interface IAddReviewArguments {
   input: Omit<Review, "id">
@@ -21,7 +22,9 @@ type ReviewResult = Review | ErrorMessage;
 const reviewResolvers = {
   Query: {},
   Mutation: {
-    addReview: async (_: any, { input }: IAddReviewArguments, { db }: Context): Promise<Review | InvalidInput> => {
+    addReview: async (_: any, { input }: IAddReviewArguments, { db, user }: Context): Promise<Review | InvalidInput> => {
+      userAuthorization(user);
+
       const schema = yup.object().shape({
         date: yup.date().required(),
         title: yup.string().required(),
@@ -54,7 +57,9 @@ const reviewResolvers = {
   
       return review;
     },
-    updateReview: async (_: any, { id, input }: IUpdateReviewArguments, { db }: Context): Promise<Review | InvalidInput> => {
+    updateReview: async (_: any, { id, input }: IUpdateReviewArguments, { db, user }: Context): Promise<Review | InvalidInput> => {
+      userAuthorization(user, ["admin"]);
+
       const schema = yup.object().shape({
         date: yup.date().optional(),
         title: yup.string().min(1).optional(),
@@ -87,7 +92,9 @@ const reviewResolvers = {
       
       return updatedReview;
     },
-    deleteReview: async (_: any, { id }: IDeleteReviewArguments, { db }: Context): Promise<boolean> => {
+    deleteReview: async (_: any, { id }: IDeleteReviewArguments, { db, user }: Context): Promise<boolean> => {
+      userAuthorization(user, ["admin"]);
+
       await db.review.delete({ where: { id } });
       return true;
     },

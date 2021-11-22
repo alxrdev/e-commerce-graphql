@@ -1,7 +1,8 @@
-import { Category, Product, Review } from ".prisma/client";
+import { Category, Product } from ".prisma/client";
 import { Context, ErrorMessage, InvalidInput } from "graphql/types";
 import * as yup from "yup";
 import { formatYupError } from "../utils/formatYupError";
+import { userAuthorization } from "../utils/userAuthorization";
 
 interface IAddCategoryArguments {
   input: Omit<Category, "id">
@@ -37,7 +38,9 @@ const categoryResolvers = {
     },
   },
   Mutation: {
-    addCategory: async (_: any, { input }: IAddCategoryArguments, { db }: Context): Promise<Category | InvalidInput> => {
+    addCategory: async (_: any, { input }: IAddCategoryArguments, { db, user }: Context): Promise<Category | InvalidInput> => {
+      userAuthorization(user, ["admin"]);
+
       const schema = yup.object().shape({
         name: yup.string().required(),
       });
@@ -52,7 +55,9 @@ const categoryResolvers = {
 
       return category;
     },
-    updateCategory: async (_: any, { id, input }: IUpdateCategoryArguments, { db }: Context): Promise<Category | InvalidInput> => {
+    updateCategory: async (_: any, { id, input }: IUpdateCategoryArguments, { db, user }: Context): Promise<Category | InvalidInput> => {
+      userAuthorization(user, ["admin"]);
+
       const schema = yup.object().shape({
         name: yup.string().required(),
       });
@@ -81,7 +86,9 @@ const categoryResolvers = {
   
       return category;
     },
-    deleteCategory: async (_: any, { id }: IDeleteCategoryArguments, { db }: Context): Promise<boolean> => {
+    deleteCategory: async (_: any, { id }: IDeleteCategoryArguments, { db, user }: Context): Promise<boolean> => {
+      userAuthorization(user, ["admin"]);
+
       await db.product.updateMany({ where: { categoryId: id }, data: { categoryId: "" } });
       await db.category.delete({ where: { id } });
         

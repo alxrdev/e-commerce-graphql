@@ -1,6 +1,7 @@
-import { ApolloServer } from "apollo-server";
+import { ApolloServer, AuthenticationError } from "apollo-server";
 import { PrismaClient } from "@prisma/client";
 import { schema } from "./graphql";
+import { decodeToken, TokenPayload } from "./graphql/utils/jwtTokenHandler";
 
 const db = new PrismaClient({
   log: [
@@ -14,12 +15,26 @@ const db = new PrismaClient({
 db.$on('query', (e) => {
   console.log('Query: ' + e.query)
   console.log('Duration: ' + e.duration + 'ms')
-})
+});
 
 const server = new ApolloServer({
   schema,
-  context: {
-    db,
+  context: ({ req }) => {    
+    let tokenPayload: TokenPayload | undefined;
+
+    if (req.headers.authorization) {
+      try {
+        const token = req.headers.authorization.replace("Bearer ", "");
+        tokenPayload = decodeToken(token);
+      } catch (err) {
+        throw new AuthenticationError("User unauthorized.");
+      }
+    }
+
+    return {
+      db,
+      user: tokenPayload,
+    }
   },
 });
 
