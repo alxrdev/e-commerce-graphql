@@ -2,12 +2,28 @@ version: "3.6"
 services:
   postgres:
     image: postgres:13
-    volumes:
-      - db_data:/var/lib/postgresql/data
+    container_name: postgres-e-commerce-graphql
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - ./db_data:/var/lib/postgresql/data
+    networks:
+      - backend
     ports:
       - "5432:5432"
-volumes:
-  db_data:
+  web:
+    build: .
+    container_name: web-e-commerce-graphql
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+    networks:
+      - backend
+
+networks:
+  backend:

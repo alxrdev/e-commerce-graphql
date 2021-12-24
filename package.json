@@ -6,11 +6,8 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "ts-node-dev --transpile-only --ignore-watch node_modules --respawn src/server.ts",
-    "build": "tsc",
+    "build": "tsc && cp -R src/graphql/schemas dist/graphql",
     "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "prisma": {
-    "schema": "src/prisma/schema.prisma"
   },
   "keywords": [],
   "author": "",
