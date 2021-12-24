@@ -12,7 +12,7 @@ const db = new PrismaClient({
   ]
 });
 
-db.$on('query', (e) => {
+db.$on('query', (e: any) => {
   console.log('Query: ' + e.query)
   console.log('Duration: ' + e.duration + 'ms')
 });
